@@ -4,8 +4,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Bundle
 import android.provider.Settings
@@ -115,22 +115,27 @@ class MainActivity : ComponentActivity() {
     private fun playRecordedAudio(audioData: ByteArray) {
         val sampleRate = 16000
         val channelConfig = AudioFormat.CHANNEL_OUT_MONO
-        val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+        val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
 
-        val minBufferSize = AudioTrack.getMinBufferSize(
-            sampleRate,
-            channelConfig,
-            audioFormat
-        )
+        val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioEncoding)
 
-        val audioTrack = AudioTrack(
-            AudioManager.STREAM_MUSIC,
-            sampleRate,
-            channelConfig,
-            audioFormat,
-            minBufferSize,
-            AudioTrack.MODE_STREAM
-        )
+        val audioTrack = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(audioEncoding)
+                    .setSampleRate(sampleRate)
+                    .setChannelMask(channelConfig)
+                    .build()
+            )
+            .setBufferSizeInBytes(minBufferSize)
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
 
         audioTrack.play()
         audioTrack.write(audioData, 0, audioData.size)
