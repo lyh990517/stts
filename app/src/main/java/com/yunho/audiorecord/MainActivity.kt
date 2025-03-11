@@ -4,10 +4,12 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioTrack
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -78,9 +80,9 @@ class MainActivity : ComponentActivity() {
                     Button(
                         onClick = {
                             scope.launch {
-                                val data = recorder.startRecording().first()
+                                val recordedData = recorder.startRecording().first()
 
-                                Log.e("123", "${data.size}")
+                                playRecordedAudio(recordedData)
                             }
                         },
                         modifier = Modifier
@@ -108,6 +110,32 @@ class MainActivity : ComponentActivity() {
             finish()
             Toast.makeText(this, "Enable Microphone Permission..!!", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun playRecordedAudio(audioData: ByteArray) {
+        val sampleRate = 16000
+        val channelConfig = AudioFormat.CHANNEL_OUT_MONO
+        val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+
+        val minBufferSize = AudioTrack.getMinBufferSize(
+            sampleRate,
+            channelConfig,
+            audioFormat
+        )
+
+        val audioTrack = AudioTrack(
+            AudioManager.STREAM_MUSIC,
+            sampleRate,
+            channelConfig,
+            audioFormat,
+            minBufferSize,
+            AudioTrack.MODE_STREAM
+        )
+
+        audioTrack.play()
+        audioTrack.write(audioData, 0, audioData.size)
+        audioTrack.stop()
+        audioTrack.release()
     }
 }
 
