@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -35,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
         ) {
             val intent = Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.parse("package:" + packageName)
+                ("package:$packageName").toUri()
             )
             startActivity(intent)
             finish()
