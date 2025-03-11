@@ -15,6 +15,7 @@ import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -33,8 +34,12 @@ import java.util.*
 
 class MainActivity : ComponentActivity() {
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ContinuousAudioRecorder().startRecording {
+            Log.e("123", "${it.size}")
+        }
         setContent {
             SpeechToTextApp()
         }
