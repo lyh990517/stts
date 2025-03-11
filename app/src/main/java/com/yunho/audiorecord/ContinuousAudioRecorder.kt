@@ -1,8 +1,10 @@
 package com.yunho.audiorecord
 
 import android.Manifest
+import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.AudioTrack
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
@@ -81,5 +83,37 @@ class AutoStopAudioRecorder {
     companion object {
         private const val SILENCE_THRESHOLD = 1000
         private const val SILENCE_DURATION = 2000L
+
+        fun ByteArray.play() {
+            val sampleRate = 16000
+            val channelConfig = AudioFormat.CHANNEL_OUT_MONO
+            val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
+
+            val minBufferSize =
+                AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioEncoding)
+
+            val audioTrack = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(audioEncoding)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(channelConfig)
+                        .build()
+                )
+                .setBufferSizeInBytes(minBufferSize)
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build()
+
+            audioTrack.play()
+            audioTrack.write(this, 0, size)
+            audioTrack.stop()
+            audioTrack.release()
+        }
     }
 }

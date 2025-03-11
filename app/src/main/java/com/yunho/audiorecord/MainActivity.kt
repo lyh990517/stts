@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import com.yunho.audiorecord.AutoStopAudioRecorder.Companion.play
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -82,7 +83,7 @@ class MainActivity : ComponentActivity() {
                             scope.launch {
                                 val recordedData = recorder.startRecording().first()
 
-                                playRecordedAudio(recordedData)
+                                recordedData.play()
                             }
                         },
                         modifier = Modifier
@@ -110,37 +111,6 @@ class MainActivity : ComponentActivity() {
             finish()
             Toast.makeText(this, "Enable Microphone Permission..!!", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun playRecordedAudio(audioData: ByteArray) {
-        val sampleRate = 16000
-        val channelConfig = AudioFormat.CHANNEL_OUT_MONO
-        val audioEncoding = AudioFormat.ENCODING_PCM_16BIT
-
-        val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioEncoding)
-
-        val audioTrack = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(audioEncoding)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(channelConfig)
-                    .build()
-            )
-            .setBufferSizeInBytes(minBufferSize)
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
-
-        audioTrack.play()
-        audioTrack.write(audioData, 0, audioData.size)
-        audioTrack.stop()
-        audioTrack.release()
     }
 }
 
