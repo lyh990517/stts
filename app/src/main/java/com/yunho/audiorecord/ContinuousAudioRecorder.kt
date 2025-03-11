@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +55,7 @@ class AutoStopAudioRecorder {
                         maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
                     }
 
+                    Log.e("213","$maxAmplitude")
                     if (maxAmplitude < SILENCE_THRESHOLD) {
                         if (silenceStartTime == null) {
                             silenceStartTime = System.currentTimeMillis()
@@ -68,6 +70,7 @@ class AutoStopAudioRecorder {
                     }
                 }
             }
+
             trySend(outputStream.toByteArray())
         }
 
@@ -81,7 +84,7 @@ class AutoStopAudioRecorder {
     }
 
     companion object {
-        private const val SILENCE_THRESHOLD = 1000
+        private const val SILENCE_THRESHOLD = 4000
         private const val SILENCE_DURATION = 2000L
 
         fun ByteArray.play() {
