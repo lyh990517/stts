@@ -86,9 +86,9 @@ class MainActivity : ComponentActivity() {
                     Button(
                         onClick = {
                             scope.launch {
-                                val recordedData = recorder.startRecording().first()
+                                val byteArray = recorder.startRecording().first()
 
-                                recordedData.play()
+                                byteArray.play()
                             }
                         },
                         modifier = Modifier
