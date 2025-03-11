@@ -8,11 +8,14 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import androidx.compose.runtime.MutableState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import kotlin.math.abs
@@ -25,6 +28,7 @@ class AutoStopAudioRecorder {
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
     private var recordingJob: Job? = null
+    val amplitude = MutableStateFlow<Int>(0)
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun startRecording() = callbackFlow<ByteArray> {
@@ -49,6 +53,8 @@ class AutoStopAudioRecorder {
                     outputStream.write(buffer, 0, readBytes)
 
                     var maxAmplitude = buffer.getMaxAmplitude(readBytes)
+
+                    amplitude.update { maxAmplitude }
 
                     if (maxAmplitude < SILENCE_THRESHOLD) {
                         if (silenceStartTime == null) {
