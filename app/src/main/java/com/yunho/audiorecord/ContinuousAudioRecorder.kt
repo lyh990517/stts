@@ -48,14 +48,8 @@ class AutoStopAudioRecorder {
                 if (readBytes > 0) {
                     outputStream.write(buffer, 0, readBytes)
 
-                    var maxAmplitude = 0
-                    for (i in 0 until readBytes step 2) {
-                        val sample =
-                            ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
-                        maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
-                    }
+                    var maxAmplitude = buffer.getMaxAmplitude(readBytes)
 
-                    Log.e("213","$maxAmplitude")
                     if (maxAmplitude < SILENCE_THRESHOLD) {
                         if (silenceStartTime == null) {
                             silenceStartTime = System.currentTimeMillis()
@@ -81,6 +75,18 @@ class AutoStopAudioRecorder {
             audioRecord?.release()
             audioRecord = null
         }
+    }
+
+    private fun ByteArray.getMaxAmplitude(readBytes: Int): Int {
+        var maxAmplitude = 0
+
+        for (i in 0 until readBytes step 2) {
+            val sample =
+                ((this[i + 1].toInt() shl 8) or (this[i].toInt() and 0xFF)).toShort()
+            maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
+        }
+
+        return maxAmplitude
     }
 
     companion object {
