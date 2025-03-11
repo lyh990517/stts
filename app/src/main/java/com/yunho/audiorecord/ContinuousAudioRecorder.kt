@@ -5,20 +5,26 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
-import kotlinx.coroutines.*
-import java.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
+import kotlin.math.abs
 
-class ContinuousAudioRecorder {
-
+class AutoStopAudioRecorder {
     private val sampleRate = 16000
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
     private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
+    private var recordingJob: Job? = null
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun startRecording(onAudioData: (ByteArray) -> Unit) {
+    fun startRecording() = callbackFlow<ByteArray> {
         audioRecord = AudioRecord(
             MediaRecorder.AudioSource.MIC,
             sampleRate,
@@ -29,21 +35,51 @@ class ContinuousAudioRecorder {
         audioRecord?.startRecording()
         isRecording = true
 
-        CoroutineScope(Dispatchers.IO).launch {
+        val outputStream = ByteArrayOutputStream()
+        var silenceStartTime: Long? = null
+
+        recordingJob = CoroutineScope(Dispatchers.IO).launch {
             val buffer = ByteArray(bufferSize)
             while (isRecording) {
                 val readBytes = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                 if (readBytes > 0) {
-                    onAudioData(buffer.copyOf(readBytes))
+                    outputStream.write(buffer, 0, readBytes)
+
+                    var maxAmplitude = 0
+                    for (i in 0 until readBytes step 2) {
+                        val sample =
+                            ((buffer[i + 1].toInt() shl 8) or (buffer[i].toInt() and 0xFF)).toShort()
+                        maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
+                    }
+
+                    if (maxAmplitude < SILENCE_THRESHOLD) {
+                        if (silenceStartTime == null) {
+                            silenceStartTime = System.currentTimeMillis()
+                        } else {
+                            val silenceTime = System.currentTimeMillis() - silenceStartTime!!
+                            if (silenceTime >= SILENCE_DURATION) {
+                                isRecording = false
+                            }
+                        }
+                    } else {
+                        silenceStartTime = null
+                    }
                 }
             }
+            trySend(outputStream.toByteArray())
+        }
+
+        awaitClose {
+            isRecording = false
+            recordingJob?.cancel()
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
         }
     }
 
-    fun stopRecording() {
-        isRecording = false
-        audioRecord?.stop()
-        audioRecord?.release()
-        audioRecord = null
+    companion object {
+        private const val SILENCE_THRESHOLD = 1000
+        private const val SILENCE_DURATION = 2000L
     }
 }

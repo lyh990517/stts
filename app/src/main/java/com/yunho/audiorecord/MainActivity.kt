@@ -7,39 +7,42 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.speech.RecognitionListener
 import android.util.Log
-import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresPermission
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import java.util.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+    private val recorder = AutoStopAudioRecorder()
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ContinuousAudioRecorder().startRecording {
-            Log.e("123", "${it.size}")
-        }
         setContent {
             SpeechToTextApp()
         }
@@ -50,75 +53,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun SpeechToTextApp() {
         var text by remember { mutableStateOf("") }
-        val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(this) }
+        var scope = rememberCoroutineScope()
 
-        val speechRecognizerIntent = remember {
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-            }
-        }
-
-        LaunchedEffect(speechRecognizer) {
+        LaunchedEffect(Unit) {
             checkPermission()
-
-            speechRecognizer.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(bundle: Bundle) {
-                    Log.d("SpeechRecognizer", "onReadyForSpeech called")
-                }
-
-                override fun onBeginningOfSpeech() {
-                    Log.d("SpeechRecognizer", "onBeginningOfSpeech called")
-                }
-
-                override fun onRmsChanged(v: Float) {
-                    Log.d("SpeechRecognizer", "onRmsChanged called with value: $v")
-                }
-
-                override fun onBufferReceived(bytes: ByteArray) {
-                    Log.d(
-                        "SpeechRecognizer",
-                        "onBufferReceived called with buffer size: ${bytes.size}"
-                    )
-                }
-
-                override fun onEndOfSpeech() {
-                    Log.d("SpeechRecognizer", "onEndOfSpeech called")
-                }
-
-                override fun onError(i: Int) {
-                    Log.e("SpeechRecognizer", "onError called with error code: $i")
-                }
-
-                override fun onResults(bundle: Bundle) {
-                    val matches = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    Log.d("SpeechRecognizer", "onResults called, matches: $matches")
-                    matches?.let {
-                        text = it[0]
-                    }
-                }
-
-                override fun onPartialResults(bundle: Bundle) {
-                    Log.d("SpeechRecognizer", "onPartialResults called")
-                }
-
-                override fun onEvent(i: Int, bundle: Bundle) {
-                    Log.d("SpeechRecognizer", "onEvent called with event code: $i")
-                }
-            })
         }
 
-
-        // UI
         Scaffold(
-            topBar = {
-                TopAppBar(title = { Text("Speech to Text") }, modifier = Modifier.clickable {
-                    speechRecognizer.startListening(speechRecognizerIntent)
-                })
-            },
             content = {
                 Column(
                     modifier = Modifier
@@ -136,7 +77,11 @@ class MainActivity : ComponentActivity() {
 
                     Button(
                         onClick = {
-                            speechRecognizer.startListening(speechRecognizerIntent)
+                            scope.launch {
+                                val data = recorder.startRecording().first()
+
+                                Log.e("123", "${data.size}")
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
