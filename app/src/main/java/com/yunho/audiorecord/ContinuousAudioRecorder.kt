@@ -38,14 +38,13 @@ class AutoStopAudioRecorder {
         isRecording = true
 
         val outputStream = ByteArrayOutputStream()
-        var silenceStartTime: Long? = null
 
         withContext(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
-            while (isRecording) {
-                val readBytes = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+            var silenceStartTime: Long? = null
 
-                if (readBytes > 0) {
+            while (isRecording) {
+                audioRecord?.read(buffer, 0, buffer.size)?.let { readBytes ->
                     outputStream.write(buffer, 0, readBytes)
 
                     var maxAmplitude = buffer.getMaxAmplitude(readBytes)
@@ -82,13 +81,28 @@ class AutoStopAudioRecorder {
     private fun ByteArray.getMaxAmplitude(readBytes: Int): Int {
         var maxAmplitude = 0
 
+        /**
+         * Converts two bytes stored in little-endian order into a 16-bit value.
+         *
+         * Example:
+         *   Original value: 0x1234
+         *
+         *   Little-endian storage:
+         *     - Low byte (index 0):  0x34
+         *     - High byte (index 1): 0x12
+         *
+         *   Reconstruction steps:
+         *     1. Shift the high byte left by 8 bits: 0x12 << 8 = 0x1200
+         *     2. Combine with the low byte using bitwise OR:
+         *        0x1200 | 0x34 = 0x1234
+         */
         for (i in 0 until readBytes step 2) {
             val low = this[i].toInt() and 0xFF
             val high = this[i + 1].toInt() shl 8
             val combined = high or low
-            val sample = combined.toShort()
+            val original = combined.toShort()
 
-            maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
+            maxAmplitude = maxAmplitude.coerceAtLeast(abs(original.toInt()))
         }
 
         return maxAmplitude
