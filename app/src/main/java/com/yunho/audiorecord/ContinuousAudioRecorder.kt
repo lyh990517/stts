@@ -7,14 +7,12 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 
@@ -25,7 +23,6 @@ class AutoStopAudioRecorder {
     private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
-    private var recordingJob: Job? = null
     val amplitude = MutableStateFlow<Int>(0)
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -43,10 +40,11 @@ class AutoStopAudioRecorder {
         val outputStream = ByteArrayOutputStream()
         var silenceStartTime: Long? = null
 
-        recordingJob = CoroutineScope(Dispatchers.IO).launch {
+        withContext(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
             while (isRecording) {
                 val readBytes = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+
                 if (readBytes > 0) {
                     outputStream.write(buffer, 0, readBytes)
 
@@ -58,7 +56,8 @@ class AutoStopAudioRecorder {
                         if (silenceStartTime == null) {
                             silenceStartTime = System.currentTimeMillis()
                         } else {
-                            val silenceTime = System.currentTimeMillis() - silenceStartTime!!
+                            val silenceTime = System.currentTimeMillis() - silenceStartTime
+
                             if (silenceTime >= SILENCE_DURATION) {
                                 isRecording = false
                             }
@@ -74,7 +73,6 @@ class AutoStopAudioRecorder {
 
         awaitClose {
             isRecording = false
-            recordingJob?.cancel()
             audioRecord?.stop()
             audioRecord?.release()
             audioRecord = null
@@ -85,8 +83,11 @@ class AutoStopAudioRecorder {
         var maxAmplitude = 0
 
         for (i in 0 until readBytes step 2) {
-            val sample =
-                ((this[i + 1].toInt() shl 8) or (this[i].toInt() and 0xFF)).toShort()
+            val low = this[i].toInt() and 0xFF
+            val high = this[i + 1].toInt() shl 8
+            val combined = high or low
+            val sample = combined.toShort()
+
             maxAmplitude = maxAmplitude.coerceAtLeast(abs(sample.toInt()))
         }
 
